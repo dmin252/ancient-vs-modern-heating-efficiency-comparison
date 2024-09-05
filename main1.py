@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
 
 def simulate_boiler(boiler_map, temp_map, iterations):
     height, width = boiler_map.shape
@@ -42,3 +45,44 @@ temp_map[heat_source_mask] = 100  # Set temperature of heat sources to 100°C
 # Water region
 water_mask = (dist_from_center < radius) & (y > center_y)
 boiler_map[water_mask] = 128
+
+
+# Setup color maps
+custom_cmap = mcolors.ListedColormap(['black', 'blue', 'red', 'white'])
+bounds = [0, 1, 128, 200, 256]
+norm = mcolors.BoundaryNorm(bounds, custom_cmap.N)
+
+# Setup temperature color map
+temp_cmap = plt.get_cmap('viridis')
+
+# Run simulation and visualize results
+iterations = 100
+final_temp_map, efficiency_history, temp_maps = simulate_boiler(boiler_map, temp_map, iterations)
+
+fig, axs = plt.subplots(3, 3, figsize=(15, 15))
+fig.suptitle('Cylindrical Boiler Simulation', fontsize=16)
+num_frames = len(temp_maps)
+time_steps = np.linspace(0, num_frames-1, 8, dtype=int)
+for i, ax in enumerate(axs.flat[:8]):
+    step = time_steps[i]
+    im = ax.imshow(temp_maps[step], cmap=temp_cmap, vmin=20, vmax=100)
+    ax.set_title(f'Step {step}')
+    ax.axis('off')
+
+axs[2, 2].plot(efficiency_history)
+axs[2, 2].set_title('Boiler Efficiency')
+axs[2, 2].set_xlabel('Iteration')
+axs[2, 2].set_ylabel('Efficiency')
+cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])
+fig.colorbar(im, cax=cbar_ax, label='Temperature (°C)')
+plt.tight_layout()
+plt.subplots_adjust(top=0.92, right=0.9)
+plt.show()
+
+plt.figure(figsize=(8, 8))
+plt.imshow(boiler_map, cmap=custom_cmap, norm=norm)
+plt.title('Boiler Structure')
+plt.colorbar(label='Component')
+plt.axis('off')
+plt.show()
+
