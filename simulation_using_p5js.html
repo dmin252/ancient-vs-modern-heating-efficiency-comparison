@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        display: block;
+      }
+      #myContainer {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="myContainer">
+      <div id="canvasContainer"></div>
+      <div>
+        <label for="ambientTempSlider" id="ambientTempLabel"></label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value="30"
+          class="slider"
+          id="ambientTempSlider"
+        />
+      </div>
+      <div>
+        <label for="heatSourceTempSlider" id="heatSourceTempLabel"></label>
+        <input
+          type="range"
+          min="0"
+          max="500"
+          value="300"
+          class="slider"
+          id="heatSourceTempSlider"
+        />
+      </div>
+      <div>
+        <label for="speedSlider" id="speedLabel"></label>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          value="5"
+          class="slider"
+          id="speedSlider"
+        />
+      </div>
+      <div>
+        <input type="checkbox" id="pauseCheckbox" name="pauseCheckbox" />
+        <label for="pauseCheckbox" id="pauseLabel"></label>
+      </div>
+      <button id="resetButton">Reset</button>
+    </div>
+    <script>
+      // Global variable declarations
+      let ambientTempLabel,
+        ambientTempSlider,
+        heatSourceTempLabel,
+        heatSourceTempSlider,
+        speedLabel,
+        speedSlider,
+        pauseCheckbox,
+        pauseLabel,
+        resetButton;
+      let pg; // Graphics buffer
+      let particleT = [], // Particle temperatures
+        particleRandX = [], // Random X offsets for particles
+        particleRandY = []; // Random Y offsets for particles
+      let graphMax,
+        graphData = []; // Data for the graph
+      let myCanvas;
+      let heatSourceTemp,
+        ambientTemp; // Temperature variables
+
+      // Constants declaration
+      const ROWS = 160; // Number of rows (increased by 2 times)
+      const COLS = 80; // Number of columns (increased by 2 times)
+      const PARTICLE_SIZE = 1; // Particle size (reduced by half)
+      const CANVAS_WIDTH = 1200; // Canvas width
+      const CANVAS_HEIGHT = 600; // Canvas height
+      const GRAPH_X = 1200; // Graph X position
+      const GRAPH_Y = 600; // Graph Y position
+      const GRAPH_WIDTH = 500; // Graph width
+      const GRAPH_HEIGHT = -400; // Graph height (negative for upward direction)
+
+      // Setup function: initializes canvas and simulation
+      function setup() {
+        frameRate(60);
+        myCanvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+        myCanvas.parent("canvasContainer");
+        myCanvas.id("myP5Canvas");
+        pg = createGraphics(CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        setupUI();
+        resetSimulation();
+      }
+
+      // Initializes the UI elements and event handlers
+      function setupUI() {
+        ambientTempLabel = select("#ambientTempLabel");
+        ambientTempLabel.html("Ambient Temperature (°C)");
+
+        ambientTempSlider = select("#ambientTempSlider");
+        ambientTempSlider.input(resetSimulation);
+
+        heatSourceTempLabel = select("#heatSourceTempLabel");
+        heatSourceTempLabel.html("Heat Source Temperature (°C)");
+
+        heatSourceTempSlider = select("#heatSourceTempSlider");
+        heatSourceTempSlider.input(resetSimulation);
+
+        speedLabel = select("#speedLabel");
+        speedLabel.html("Time Flow Speed");
+
+        speedSlider = select("#speedSlider");
+        speedSlider.input(updateSpeed);
+
+        pauseCheckbox = select("#pauseCheckbox");
+        pauseLabel = select("#pauseLabel");
+        pauseLabel.html("Pause Simulation");
+
+        resetButton = select("#resetButton");
+        resetButton.mouseClicked(resetSimulation);
+        resetButton.html("Reset");
+      }
+
+      // Updates the simulation speed based on the slider value
+      function updateSpeed() {
+        let speed = speedSlider.value() * 10;
+        frameRate(speed);
+        speedLabel.html("Time Flow Speed: " + speed);
+      }
+
+      // Resets the simulation to initial state
+      function resetSimulation() {
+        ambientTemp = ambientTempSlider.value();
+        heatSourceTemp = heatSourceTempSlider.value();
+
+        ambientTempLabel.html("Ambient Temperature: " + ambientTemp + "°C");
+        heatSourceTempLabel.html(
+          "Heat Source Temperature: " + heatSourceTemp + "°C"
+        );
+
+        initParticles();
+        particleRandomMoving();
+
+        graphMax = 0;
+        graphData = [];
+      }
+
+      // Initializes particle temperatures and positions
+      function initParticles() {
+        particleT = [];
+        particleRandX = [];
+        particleRandY = [];
+
+        for (let i = 0; i < ROWS; i++) {
+          particleT[i] = [];
+          particleRandX[i] = [];
+          particleRandY[i] = [];
+
+          for (let j = 0; j < COLS; j++) {
+            // Set heat source in the central bottom part
+            if (i >= ROWS - 20 && j >= COLS / 2 - 10 && j < COLS / 2 + 10) {
+              particleT[i][j] = heatSourceTemp;
+            } else {
+              particleT[i][j] = ambientTemp;
+            }
+
+            // Set insulation
+            if (
+              (j === COLS / 2 - 20 || j === COLS / 2 + 20) &&
+              i >= ROWS / 2 - 40 &&
+              i < ROWS / 2 + 40
+            ) {
+              particleT[i][j] = ambientTemp;
+            }
+          }
+        }
+      }
+
+      // Generates random movement offsets for particles based on temperature
+      function particleRandomMoving() {
+        for (let i = 0; i < ROWS; i++) {
+          for (let j = 0; j < COLS; j++) {
+            particleRandX[i][j] = random(
+              -particleT[i][j] * 0.1,
+              particleT[i][j] * 0.1
+            );
+            particleRandY[i][j] = random(
+              -particleT[i][j] * 0.1,
+              particleT[i][j] * 0.1
+            );
+          }
+        }
+      }
+
+      // Main draw loop
+      function draw() {
+        if (touches.length > 1) return; // Prevents multi-touch issues
+        background(255);
+        textSize(24);
+        textAlign(CENTER, CENTER);
+
+        if (!pauseCheckbox.checked()) {
+          pg.background(222, 64);
+          particleRandomMoving();
+          updateParticleTemperatures();
+          updateGraphData();
+          maintainHeatSource(); // Call function to maintain heat source temperature
+        }
+
+        drawParticles();
+        image(pg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        drawGraph();
+      }
+
+      // Function to maintain the heat source temperature
+      function maintainHeatSource() {
+        for (let i = ROWS - 20; i < ROWS; i++) {
+          for (
+            let j = Math.floor(COLS / 2 - 10);
+            j < Math.floor(COLS / 2 + 10);
+            j++
+          ) {
+            particleT[i][j] = heatSourceTemp;
+          }
+        }
+      }
+
+      // Updates particle temperatures based on surrounding particles
+      function updateParticleTemperatures() {
+        let tt = [];
+        for (let i = 0; i < ROWS; i++) {
+          tt[i] = [];
+          for (let j = 0; j < COLS; j++) {
+            let neighbors = [];
+            // Collect temperatures of adjacent particles
+            if (i > 0) neighbors.push(particleT[i - 1][j]); // Up
+            if (i < ROWS - 1) neighbors.push(particleT[i + 1][j]); // Down
+            if (j > 0) neighbors.push(particleT[i][j - 1]); // Left
+            if (j < COLS - 1) neighbors.push(particleT[i][j + 1]); // Right
+
+            // Calculate average temperature of surrounding particles
+            let averageTemp =
+              neighbors.reduce((sum, curr) => sum + curr, 0) / neighbors.length;
+
+            // Mix current particle's temperature with surrounding average
+            tt[i][j] = lerp(particleT[i][j], averageTemp, 0.05); // Mixing ratio adjustable
+          }
+        }
+
+        // Apply updated temperature information to actual particle temperatures
+        for (let i = 0; i < ROWS; i++) {
+          for (let j = 0; j < COLS; j++) {
+            particleT[i][j] = tt[i][j];
+          }
+        }
+      }
+
+      // Updates the graph data with the current temperature at a specific point
+      function updateGraphData() {
+        if (graphMax >= 0) {
+          graphData[graphMax] = particleT[80][40]; // Adjust row and column indices
+          graphMax++;
+        }
+      }
+
+      // Draws particles on the canvas
+      function drawParticles() {
+        for (let i = 0; i < ROWS; i++) {
+          for (let j = 0; j < COLS; j++) {
+            let x = map(j, -0.5, COLS - 0.5, 0, CANVAS_WIDTH);
+            let y = map(i, -0.5, ROWS - 0.5, 0, CANVAS_HEIGHT);
+            pg.noStroke();
+            pg.fill(
+              lerpColor(
+                color(0, 0, 255),
+                color(255, 0, 0),
+                (particleT[i][j] - ambientTemp) / (heatSourceTemp - ambientTemp)
+              )
+            );
+            pg.ellipse(
+              x + particleRandX[i][j],
+              y + particleRandY[i][j],
+              PARTICLE_SIZE,
+              PARTICLE_SIZE
+            );
+
+            // Draw insulation
+            if (
+              (j === COLS / 2 - 20 || j === COLS / 2 + 20) &&
+              i >= ROWS / 2 - 40 &&
+              i < ROWS / 2 + 40
+            ) {
+              pg.stroke(0);
+              pg.strokeWeight(2);
+              pg.line(x, y - PARTICLE_SIZE / 2, x, y + PARTICLE_SIZE / 2);
+            }
+          }
+        }
+      }
+
+      // Draws the graph showing temperature changes over time
+      function drawGraph() {
+        fill(128);
+        strokeWeight(1);
+        textAlign(RIGHT, CENTER);
+
+        drawGraphGrid();
+        drawGraphAxes();
+        drawGraphData();
+      }
+
+      // Draws grid lines for the graph
+      function drawGraphGrid() {
+        for (
+          let i = ambientTemp;
+          i <= heatSourceTemp;
+          i += (heatSourceTemp - ambientTemp) / 10
+        ) {
+          let y = map(
+            i,
+            ambientTemp,
+            heatSourceTemp,
+            GRAPH_Y,
+            GRAPH_Y + GRAPH_HEIGHT
+          );
+          stroke(128, 255, 128);
+          line(GRAPH_X, y, GRAPH_X + GRAPH_WIDTH, y);
+          noStroke();
+          text(i.toFixed(1), GRAPH_X - 10, y);
+        }
+      }
+
+      // Draws axes for the graph
+      function drawGraphAxes() {
+        stroke(64);
+        line(GRAPH_X, GRAPH_Y, GRAPH_X + GRAPH_WIDTH, GRAPH_Y); // X-axis
+        line(GRAPH_X, GRAPH_Y, GRAPH_X, GRAPH_Y + GRAPH_HEIGHT); // Y-axis
+      }
+
+      // Plots the graph data
+      function drawGraphData() {
+        if (graphMax > 0) {
+          noFill();
+          stroke(0);
+          strokeWeight(2);
+          beginShape();
+          for (let i = 0; i < min(500, graphMax); i++) {
+            let x = map(i, 0, 500, GRAPH_X, GRAPH_X + GRAPH_WIDTH);
+            let y = map(
+              graphData[i],
+              ambientTemp,
+              heatSourceTemp,
+              GRAPH_Y,
+              GRAPH_Y + GRAPH_HEIGHT
+            );
+            vertex(x, y);
+          }
+          endShape();
+
+          // Draw current data point
+          fill(255, 0, 0);
+          noStroke();
+          let x = map(graphMax, 0, 500, GRAPH_X, GRAPH_X + GRAPH_WIDTH);
+          let y = map(
+            graphData[graphMax - 1],
+            ambientTemp,
+            heatSourceTemp,
+            GRAPH_Y,
+            GRAPH_Y + GRAPH_HEIGHT
+          );
+          ellipse(x, y, 10, 10);
+        }
+      }
+    </script>
+  </body>
+</html>
