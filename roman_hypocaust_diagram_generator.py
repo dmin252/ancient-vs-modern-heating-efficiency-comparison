@@ -65,3 +65,67 @@ cushion2_right = cushion2_left + 60
 cushion2_bottom = floor_top - 10
 cushion2_top = cushion2_bottom - 30
 draw.ellipse([(cushion2_left, cushion2_top), (cushion2_right, cushion2_bottom)], fill=cushion_color, outline=border_color)
+
+# Fire source (adjusted downward)
+fire_base_x = 20
+fire_base_y = heating_passage_top + heating_passage_height + 20  # Adjusted downward
+fire_tip_x = fire_base_x + 20
+fire_tip_y = fire_base_y - 40
+draw.polygon([(fire_base_x, fire_base_y), (fire_tip_x, fire_tip_y), (fire_base_x + 40, fire_base_y)], fill=fire_color, outline=border_color)
+
+# Smoke outlet (chimney)
+chimney_width = 20
+chimney_left = width - 40
+chimney_right = chimney_left + chimney_width
+chimney_bottom = heating_passage_top + heating_passage_height // 2
+chimney_top = chimney_bottom - 100
+draw.rectangle([(chimney_left, chimney_top), (chimney_right, chimney_bottom)], fill=stone_color, outline=border_color)
+
+# Smoke rising from the chimney
+smoke_x = (chimney_left + chimney_right) // 2
+for i in range(5):
+    smoke_radius = 10 + i * 5
+    smoke_center_y = chimney_top - i * 15
+    draw.ellipse([(smoke_x - smoke_radius, smoke_center_y - smoke_radius),
+                  (smoke_x + smoke_radius, smoke_center_y + smoke_radius)],
+                 fill=smoke_color, outline=border_color)
+
+# Define heat flow arrow function
+def draw_arrow(draw, start, end, arrow_color, width=2):
+    draw.line([start, end], fill=arrow_color, width=width)
+    # Draw arrowhead
+    arrowhead_length = 10
+    angle = math.atan2(end[1] - start[1], end[0] - start[0]) + math.pi
+    left_angle = angle + math.pi / 6
+    right_angle = angle - math.pi / 6
+    left_x = end[0] + arrowhead_length * math.cos(left_angle)
+    left_y = end[1] + arrowhead_length * math.sin(left_angle)
+    right_x = end[0] + arrowhead_length * math.cos(right_angle)
+    right_y = end[1] + arrowhead_length * math.sin(right_angle)
+    draw.polygon([end, (left_x, left_y), (right_x, right_y)], fill=arrow_color)
+
+# Heat flow arrows inside the heating passage (changed to water flow)
+arrow_y = heating_passage_top + heating_passage_height // 2
+for i in range(3):
+    start_x = 50 + i * 200
+    end_x = start_x + 100
+    draw_arrow(draw, (start_x, arrow_y), (end_x, arrow_y), heat_arrow_color)
+
+# Heat flow arrows towards the floor
+for i in range(5):
+    x = 100 + i * 150
+    start_y = heating_passage_top
+    end_y = floor_top
+    draw_arrow(draw, (x, start_y), (x, end_y), heat_arrow_color)
+
+# Get save path from external input
+save_path = input("Enter the directory where the image should be saved: ")
+if not os.path.exists(save_path):
+    os.makedirs(save_path)
+
+file_name = "roman_hypocaust_conceptual_with_borders.bmp"
+file_path = os.path.join(save_path, file_name)
+
+# Save image
+image.save(file_path)
+print(f"Image has been saved: {file_path}")
