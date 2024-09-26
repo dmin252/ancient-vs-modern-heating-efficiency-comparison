@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        display: block;
+      }
+      #myContainer {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="myContainer">
+      <div id="canvasContainer"></div>
+      <div>
+        <label for="rangeA" id="labelA"></label>
+        <input
+          type="range"
+          min="1"
+          max="10"
+          value="5"
+          class="slider"
+          id="rangeA"
+        />
+      </div>
+      <div>
+        <input type="checkbox" id="checkA" name="checkA" checked />
+        <label for="checkA" id="chalkA"></label>
+      </div>
+      <button id="buttonRst">Reset</button>
+    </div>
+    <script>
+      let language = 0;
+      let labelA;  
+      let rangeA;
+      let checkA;
+      let chalkA;
+      let buttonRst;
+      let pg;
+      let particleT = [];
+      let particleRandX = [];
+      let particleRandY = [];
+      let graphMax;
+      let graphData = [];
+      
+      function setup() {
+        frameRate(30);
+        let o = select("#myContainer");
+        let w = int(min(o.width, window.innerHeight - 160));
+        let h = w;
+        myCanvas = createCanvas(w, h);
+        myCanvas.parent("canvasContainer");
+        myCanvas.id("myP5Canvas");
+        pg = createGraphics(400, 400);
+
+        labelA = select("#labelA");
+        labelA.html("온도 차이"); 
+        
+        rangeA = select("#rangeA");
+        rangeA.input(setup2);
+        
+        checkA = select("#checkA");
+        chalkA = select("#chalkA");
+        chalkA.html("시간의 흐름");
+        
+        buttonRst = select("#buttonRst");
+        buttonRst.mouseClicked(setup2);
+        buttonRst.html("리셋");
+        
+        setup2();
+      }
+
+      function windowResized() {
+        let o = select("#myContainer");
+        let w = int(min(o.width, window.innerHeight - 160));
+        let h = w;
+        resizeCanvas(w, h);
+      }
+
+      function setup2() {
+        checkA.checked(true);
+        
+        let tempDiff = rangeA.value();
+        labelA.html("온도 차이: " + tempDiff);
+        
+        for (let i = 0; i < 20; i++) {
+          particleT[i] = i < 1 || i >= 19 ? 100 - tempDiff*5 : tempDiff*5;
+          particleRandX[i] = [];
+          particleRandY[i] = [];
+        }
+        
+        particleRandomMoving();
+        graphMax = 0;
+        graphData = [];
+      }
+
+      function particleRandomMoving() {
+        for (let i = 0; i < 20; i++)
+          for (let j = 0; j < 20; j++) {
+            particleRandX[i][j] = random(-particleT[i]*0.1, particleT[i]*0.1);
+            particleRandY[i][j] = random(-particleT[i]*0.1, particleT[i]*0.1);
+          }  
+      }
+
+      function draw() {
+        if (touches.length > 1) return;
+        background(255);
+        textSize(30);
+        textAlign(CENTER, CENTER);
+        push();
+        scale(width / 1000);
+
+        if (checkA.checked()) {
+          pg.background(222, 64);
+          particleRandomMoving();
+        }
+
+        if (checkA.checked()) {
+          let tt = [];
+          for (let i = 0; i < 19; i++) 
+            tt[i] = (particleT[i] + particleT[i+1])/2;
+          for (let i = 1; i < 19; i++)
+            particleT[i] = tt[i-1];
+
+          if (graphMax >= 0) {
+            graphData[graphMax] = particleT[10];
+            graphMax++;  
+          }
+        }
+
+        for (let i = 0; i < 20; i++) {
+          for (let j = 0; j < 20; j++) {
+            let x = map(j, -0.5, 19.5, 0, 400);  
+            let y = map(i, -0.5, 19.5, 0, 400);
+            pg.noStroke();
+            pg.fill(lerpColor(color(0,0,255), color(255,0,0), particleT[i]/100));
+            pg.ellipse(x+particleRandX[i][j], y+particleRandY[i][j], 14, 14);
+          }
+        }
+        image(pg, 0, 50, 400, 400, 0, 0, 400, 400); 
+
+        let graphX = 500;
+        let graphY = 450; 
+        let graphW = 500;
+        let graphH = -400;
+        fill(128);
+        strokeWeight(1);
+        textAlign(RIGHT, CENTER);
+        for (let i=0; i<=100; i+=10) {
+          let y = map(i, 0,100, graphY,graphY+graphH);
+          stroke(128,255,128);
+          line(graphX, y, graphX+graphW, y);
+          noStroke();
+          text(i, graphX-10, y);
+        }
+        stroke(64);  
+        line(graphX, graphY, graphX+graphW, graphY);
+        line(graphX, graphY, graphX, graphY+graphH);
+
+        if (graphMax > 0) {
+          noFill();
+          stroke(0);
+          strokeWeight(2);
+          beginShape();
+          for (let i=0; i<min(500, graphMax); i++) {
+            let x = map(i, 0,500, graphX,graphX+graphW);
+            let y = map(graphData[i], 0,100, graphY,graphY+graphH);  
+            vertex(x, y);
+          }
+          endShape();
+
+          fill(255,0,0);
+          noStroke();
+          let x = map(graphMax, 0,500, graphX,graphX+graphW);
+          let y = map(graphData[graphMax-1], 0,100, graphY,graphY+graphH);
+          ellipse(x, y, 10, 10);
+        }
+        pop();
+      }
+
+    </script>
+  </body>
+</html>
