@@ -1,0 +1,84 @@
+let u = [];
+let f = [];
+let N = 50;
+let dt;
+let h;
+let alpha = 0.01; // 공기의 열 확산 계수를 반영한 임의의 작은 값
+let elapsedTime = 0;  // 경과 시간을 저장할 변수
+function setup() {
+  createCanvas(400, 400);
+  h = 1 / N;  // 공간 간격
+  dt = 0.1 * pow(h, 2) / alpha;  // 안정성을 위한 시간 간격 조정
+  // 온도 배열 초기화
+  for (let i = 0; i < N; i++) {
+    u[i] = [];
+    f[i] = [];
+    for (let j = 0; j < N; j++) {
+      u[i][j] = 0; // 초기 온도
+      f[i][j] = 0; // 소스 항 (현재는 사용되지 않음)
+    }
+  }
+  // 왼쪽 아래 코너에 열점 초기화
+  u[10][45] = 500;  // 열점 온도를 유지
+}
+function draw() {
+  background(220);
+  noStroke();
+  // 매 프레임마다 열점 온도 유지
+  u[10][45] = 500;  // 열점 온도를 유지
+  // 유한 차분법을 사용하여 온도 분포 업데이트
+  let u_new = [];
+  for (let i = 0; i < N; i++) {
+    u_new[i] = [];
+    for (let j = 0; j < N; j++) {
+      u_new[i][j] = u[i][j]; // 경계 부분은 온도 유지
+    }
+  }
+  // 내부 온도 업데이트
+  for (let i = 1; i < N - 1; i++) {
+    for (let j = 1; j < N - 1; j++) {
+      u_new[i][j] = u[i][j] + dt * alpha * (u[i + 1][j] - 4 * u[i][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1]) / pow(h, 2);
+    }
+  }
+  for (let i = 1; i < N - 1; i++) {
+    for (let j = 1; j < N - 1; j++) {
+      // 대류 효과 추가: y가 10에서 20 사이일 때 오른쪽으로 이동
+      if (j >= 40 && j <= 45 && i < N - 2) {  // 경계 조건 검사
+        u_new[i + 1][j] += 0.2 * u[i][j]; // 오른쪽으로 이동하는 열의 일부
+        u_new[i][j] -= 0.2 * u[i][j]; // 원래 위치에서는 열이 감소
+      }
+      // 대류 효과 추가: y가 10에서 20 사이일 때 오른쪽으로 이동
+      if (i >= 45 && i <= N - 2) {  // 경계 조건 검사
+        u_new[i - 1][j] += 0.2 * u[i][j]; // 오른쪽으로 이동하는 열의 일부
+        u_new[i][j] -= 0.2 * u[i][j]; // 원래 위치에서는 열이 감소
+      }
+    }
+  }
+  // 업데이트된 온도 배열로 교체
+  u = u_new;
+  // 화면에 온도 분포 그리기
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      fill(mapTempToGradient(u[i][j]));
+      ellipse(4 * 2 * i, 4 * 2 * j, 5);
+    }
+  }
+  // 경과 시간 누적
+  elapsedTime += dt;
+  fill(0);
+  text("Heat Conduction in Air Simulation", 50, 50);
+  text("Elapsed Time: " + nf(elapsedTime, 1, 2) + " seconds", 50, 90);
+}
+// 온도를 색상 그라데이션으로 매핑
+function mapTempToGradient(temp) {
+  let blue = color(0, 0, 255);  // 파란색
+  let orange = color(255, 165, 0);  // 주황색
+  let red = color(255, 0, 0);  // 빨간색
+  if (temp < 30) {
+    return lerpColor(blue, orange, temp / 30);  // 파란색에서 주황색으로 그라데이션
+  } else if (temp < 80) {
+    return lerpColor(orange, red, (temp - 30) / 50);  // 주황색에서 빨간색으로 그라데이션
+  } else {
+    return red;  // 80도 이상은 빨간색
+  }
+}
